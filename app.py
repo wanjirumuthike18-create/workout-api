@@ -6,25 +6,25 @@ from models import db, Exercise, Workout, WorkoutExercise
 from schemas import ExerciseSchema, WorkoutSchema, WorkoutExerciseSchema
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"  # our database file
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-db.init_app(app)
-migrate = Migrate(app, db)
+db.init_app(app)  # connect db to this app
+migrate = Migrate(app, db)  # lets us create tables with flask db commands
 
 
-# if the data is bad, send back a 400 with the reason
-@app.errorhandler(ValidationError)
+# error handlers: catch bad data anywhere and reply with 400 (bad request)
+@app.errorhandler(ValidationError)  # raised by schemas
 def schema_error(e):
     return {"errors": e.messages}, 400
 
 
-@app.errorhandler(ValueError)
+@app.errorhandler(ValueError)  # raised by model validations
 def model_error(e):
     return {"errors": str(e)}, 400
 
 
-# ---------- workouts ----------
+# ---------- workouts: view all, view one, create, delete ----------
 @app.get("/workouts")
 def get_workouts():
     return WorkoutSchema(many=True).dump(Workout.query.all()), 200
@@ -34,17 +34,17 @@ def get_workouts():
 def get_workout(id):
     workout = db.session.get(Workout, id)
     if not workout:
-        return {"error": "Workout not found"}, 404
+        return {"error": "Workout not found"}, 404  # 404 = doesn't exist
     return WorkoutSchema().dump(workout), 200
 
 
 @app.post("/workouts")
 def create_workout():
-    data = WorkoutSchema().load(request.get_json())
-    workout = Workout(**data)
+    data = WorkoutSchema().load(request.get_json())  # validate the incoming JSON
+    workout = Workout(**data)  # turn it into a Workout object
     db.session.add(workout)
-    db.session.commit()
-    return WorkoutSchema().dump(workout), 201
+    db.session.commit()  # save to the database
+    return WorkoutSchema().dump(workout), 201  # 201 = created
 
 
 @app.delete("/workouts/<int:id>")
@@ -54,10 +54,10 @@ def delete_workout(id):
         return {"error": "Workout not found"}, 404
     db.session.delete(workout)
     db.session.commit()
-    return {}, 204
+    return {}, 204  # 204 = done, nothing to send back
 
 
-# ---------- exercises ----------
+# ---------- exercises: same four actions ----------
 @app.get("/exercises")
 def get_exercises():
     return ExerciseSchema(many=True).dump(Exercise.query.all()), 200
@@ -90,7 +90,7 @@ def delete_exercise(id):
     return {}, 204
 
 
-# ---------- add an exercise to a workout ----------
+# ---------- add an existing exercise to a workout (adds a line to the order) ----------
 @app.post("/workouts/<int:workout_id>/exercises/<int:exercise_id>/workout_exercises")
 def add_exercise_to_workout(workout_id, exercise_id):
     workout = db.session.get(Workout, workout_id)
@@ -98,11 +98,11 @@ def add_exercise_to_workout(workout_id, exercise_id):
     if not workout or not exercise:
         return {"error": "Workout or exercise not found"}, 404
 
-    data = WorkoutExerciseSchema().load(request.get_json())
+    data = WorkoutExerciseSchema().load(request.get_json())  # sets / reps / duration
     link = WorkoutExercise(workout_id=workout_id, exercise_id=exercise_id, **data)
     db.session.add(link)
     db.session.commit()
-    return WorkoutSchema().dump(workout), 201
+    return WorkoutSchema().dump(workout), 201  # send back the updated workout
 
 
 if __name__ == "__main__":
